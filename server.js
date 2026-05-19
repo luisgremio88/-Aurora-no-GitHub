@@ -3611,6 +3611,199 @@ async function analyzeWebsiteArchitecture(rootPath, statsData) {
   };
 }
 
+function scoreResourceForQuery(resource, query) {
+  const queryTokens = tokenize(query);
+  if (!queryTokens.length) return 0;
+  const site = resource.siteIntelligence || {};
+  const designTokens = site.designTokens || {};
+  const haystack = [
+    resource.title,
+    resource.summary,
+    resource.path,
+    ...(resource.modules || []),
+    ...(resource.headings || []),
+    ...(site.frameworks || []),
+    ...(site.layoutPatterns || []),
+    ...(site.componentHints || []),
+    ...(site.architectureLessons || []),
+    ...(site.routingHints || []),
+    ...(site.pages || []).map((page) => `${page.path} ${page.title || ""}`),
+    ...(designTokens.colors || []),
+    ...(designTokens.fonts || [])
+  ].join(" ");
+  const tokens = new Set(tokenize(haystack));
+  return queryTokens.reduce((score, token) => score + (tokens.has(token) ? 2 : haystack.toLowerCase().includes(token) ? 1 : 0), 0);
+}
+
+function searchResourceLibrary(resources, query) {
+  return resources
+    .map((resource) => ({ ...resource, score: scoreResourceForQuery(resource, query) }))
+    .filter((resource) => resource.score > 0)
+    .sort((a, b) => b.score - a.score || String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))
+    .slice(0, 12);
+}
+
+function findResourceById(resources, id) {
+  return resources.find((resource) => resource.id === id) || resources[0] || null;
+}
+
+function buildVisualAnalysis(resource) {
+  const site = resource.siteIntelligence || {};
+  const tokens = site.designTokens || {};
+  const palette = tokens.colors || [];
+  const fonts = tokens.fonts || [];
+  const assets = site.assetHints || [];
+  const layout = site.layoutPatterns || [];
+  const recommendations = [
+    layout.length ? `Recriar a hierarquia visual usando ${layout.slice(0, 4).join(", ")}.` : "Definir primeiro grade, espacamento e hierarquia de secoes.",
+    palette.length ? "Usar a paleta como inspiracao e gerar uma paleta propria para evitar copia de marca." : "Criar paleta propria antes de codar componentes.",
+    fonts.length ? `Inspirar a escala tipografica em ${fonts.slice(0, 2).join(", ")}.` : "Definir tipografia de leitura e titulos no inicio.",
+    assets.length ? "Mapear assets por tipo e substituir por imagens proprias/licenciadas." : "Planejar assets reais para o primeiro viewport."
+  ];
+  return {
+    resourceId: resource.id,
+    title: resource.title,
+    summary: {
+      pages: site.pages?.length || 0,
+      cssFiles: site.cssFiles?.length || 0,
+      jsFiles: site.jsFiles?.length || 0,
+      assets
+    },
+    palette,
+    fonts,
+    layoutPatterns: layout,
+    componentHints: site.componentHints || [],
+    recommendations
+  };
+}
+
+async function scanResourceSecurity(resource) {
+  const rootPath = path.resolve(resource.path || "");
+  const files = existsSync(rootPath) ? await collectWebsiteFiles(rootPath, rootPath) : [];
+  const findings = [];
+  const addFinding = (severity, title, filePath, detail, advice) => {
+    findings.push({ severity, title, path: filePath, detail: String(detail || "").slice(0, 260), advice });
+  };
+
+  for (const file of files.slice(0, 160)) {
+    let content = "";
+    try {
+      content = await readFile(file.fullPath, "utf8");
+    } catch {
+      continue;
+    }
+    const relativePath = file.path;
+    if (/\b(eval|new Function)\s*\(/.test(content)) {
+      addFinding("high", "Execucao dinamica", relativePath, "eval/new Function detectado.", "Revisar manualmente antes de reutilizar qualquer trecho.");
+    }
+    if (/atob\(|fromCharCode|base64|\\x[0-9a-f]{2}/i.test(content) && content.length > 2000) {
+      addFinding("medium", "Possivel ofuscacao", relativePath, "Padroes comuns de codigo ofuscado.", "Tratar como referencia nao confiavel ate revisar.");
+    }
+    if (/\b(api[_-]?key|secret|token|password|senha)\b\s*[:=]\s*["'][^"']{8,}["']/i.test(content)) {
+      addFinding("high", "Possivel segredo exposto", relativePath, "Chave, token ou senha aparente.", "Nao copiar para projetos novos; remover do material salvo se for real.");
+    }
+    for (const match of content.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)) {
+      const src = match[1];
+      if (/^https?:\/\//i.test(src)) {
+        addFinding("low", "Script externo", relativePath, src, "Preferir dependencias auditadas e fixadas por versao.");
+      }
+    }
+    if (/document\.write|innerHTML\s*=|insertAdjacentHTML/i.test(content)) {
+      addFinding("medium", "HTML dinamico sensivel", relativePath, "Uso de escrita direta de HTML.", "Validar sanitizacao antes de adaptar esse padrao.");
+    }
+  }
+
+  const summary = {
+    high: findings.filter((finding) => finding.severity === "high").length,
+    medium: findings.filter((finding) => finding.severity === "medium").length,
+    low: findings.filter((finding) => finding.severity === "low").length
+  };
+  return {
+    resourceId: resource.id,
+    title: resource.title,
+    scannedFiles: files.length,
+    summary,
+    findings: findings.slice(0, 80),
+    recommendation: summary.high
+      ? "Nao usar como referencia ate revisar os achados altos."
+      : summary.medium
+        ? "Usar apenas como referencia arquitetural apos revisar os pontos medios."
+        : "Sem sinais fortes de risco nos arquivos web amostrados."
+  };
+}
+
+function buildTeachingExplanation(resource) {
+  const site = resource.siteIntelligence || {};
+  const tokens = site.designTokens || {};
+  const sections = [
+    `Biblioteca: ${resource.title}`,
+    `Resumo: ${resource.summary || "Sem resumo."}`,
+    "",
+    "Como foi construido",
+    `- Stack/frameworks: ${(site.frameworks || []).join(", ") || "nao detectado"}.`,
+    `- Paginas/rotas: ${(site.routingHints || []).slice(0, 12).join(", ") || "nao mapeadas"}.`,
+    `- CSS: ${(site.cssFiles || []).slice(0, 8).join(", ") || "nao mapeado"}.`,
+    `- JavaScript: ${(site.jsFiles || []).slice(0, 8).join(", ") || "nao mapeado"}.`,
+    "",
+    "Padroes importantes",
+    ...(site.layoutPatterns || ["Nenhum padrao claro detectado."]).map((item) => `- ${item}`),
+    "",
+    "Componentes provaveis",
+    ...((site.componentHints || []).slice(0, 14).map((item) => `- ${item}`)),
+    "",
+    "Design",
+    `- Cores: ${(tokens.colors || []).slice(0, 12).join(", ") || "nao detectadas"}.`,
+    `- Fontes: ${(tokens.fonts || []).slice(0, 6).join(", ") || "nao detectadas"}.`,
+    "",
+    "Licoes para proximas criacoes",
+    ...((site.architectureLessons || []).map((item) => `- ${item}`)),
+    "- Usar estes pontos como referencia de arquitetura, nao como copia literal de marca, textos, imagens ou codigo."
+  ];
+  return {
+    resourceId: resource.id,
+    title: resource.title,
+    explanation: sections.filter((line, index, arr) => line || arr[index - 1]).join("\n")
+  };
+}
+
+async function consolidateProjectMemoryFromResources(resources) {
+  const current = await readProjectProfile();
+  const webResources = resources.filter((resource) => resource.siteIntelligence?.isWebsite);
+  const frameworks = uniqueLimited(webResources.flatMap((resource) => resource.siteIntelligence.frameworks || []), 12);
+  const lessons = uniqueLimited(webResources.flatMap((resource) => resource.siteIntelligence.architectureLessons || []), 12);
+  const patterns = uniqueLimited(webResources.flatMap((resource) => resource.siteIntelligence.layoutPatterns || []), 12);
+  const memoryBlock = [
+    "Memoria consolidada das bibliotecas web:",
+    frameworks.length ? `Stacks observadas: ${frameworks.join(", ")}.` : "",
+    patterns.length ? `Padroes de layout recorrentes: ${patterns.join(", ")}.` : "",
+    lessons.length ? `Licoes reutilizaveis: ${lessons.join(" ")}` : "",
+    "Regra: usar bibliotecas como referencia de arquitetura e aprendizado, sem copiar marca, textos, imagens ou codigo proprietario."
+  ].filter(Boolean).join("\n");
+  const notes = uniqueLimited([current.notes, memoryBlock], 2).join("\n\n").slice(0, 6000);
+  const profile = {
+    ...current,
+    stack: current.stack || frameworks.join(", "),
+    notes,
+    updatedAt: new Date().toISOString()
+  };
+  await saveProjectProfile(profile);
+  return { profile, resourcesUsed: webResources.length, frameworks, patterns, lessons };
+}
+
+function buildReferenceObjective(objective, resource) {
+  const site = resource.siteIntelligence || {};
+  return `${objective}
+
+Referencia cadastrada: ${resource.title}
+Use somente como inspiracao de arquitetura e padroes.
+Stack observada: ${(site.frameworks || []).join(", ") || "nao detectada"}.
+Paginas/rotas observadas: ${(site.routingHints || []).slice(0, 12).join(", ") || "nao mapeadas"}.
+Padroes de layout: ${(site.layoutPatterns || []).slice(0, 12).join(", ") || "nao mapeados"}.
+Componentes provaveis: ${(site.componentHints || []).slice(0, 16).join(", ") || "nao mapeados"}.
+Licoes: ${(site.architectureLessons || []).join(" ")}
+Nao copiar marca, textos, imagens, nomes comerciais ou codigo proprietario.`;
+}
+
 async function scanResourceFolder(rawPath, title = "") {
   const rootPath = path.resolve(String(rawPath || "").trim());
   if (!rootPath || !existsSync(rootPath)) {
@@ -6982,6 +7175,96 @@ async function handleResourceLibrary(req, res) {
   }
 }
 
+async function handleResourceLibrarySearch(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const query = String(url.searchParams.get("q") || "").trim();
+  if (query.length < 2) {
+    sendJson(res, 400, { error: "Digite pelo menos 2 caracteres." });
+    return;
+  }
+  const library = await readResourceLibrary();
+  sendJson(res, 200, { query, results: searchResourceLibrary(library.resources, query) });
+}
+
+async function handleResourceLibraryTeach(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const library = await readResourceLibrary();
+  const resource = findResourceById(library.resources, url.searchParams.get("id"));
+  if (!resource) {
+    sendJson(res, 404, { error: "Nenhuma biblioteca cadastrada." });
+    return;
+  }
+  sendJson(res, 200, buildTeachingExplanation(resource));
+}
+
+async function handleResourceLibraryVisual(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const library = await readResourceLibrary();
+  const resource = findResourceById(library.resources, url.searchParams.get("id"));
+  if (!resource) {
+    sendJson(res, 404, { error: "Nenhuma biblioteca cadastrada." });
+    return;
+  }
+  sendJson(res, 200, buildVisualAnalysis(resource));
+}
+
+async function handleResourceLibrarySecurity(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const library = await readResourceLibrary();
+  const resource = findResourceById(library.resources, url.searchParams.get("id"));
+  if (!resource) {
+    sendJson(res, 404, { error: "Nenhuma biblioteca cadastrada." });
+    return;
+  }
+  sendJson(res, 200, await scanResourceSecurity(resource));
+}
+
+async function handleProjectMemoryConsolidate(req, res) {
+  const library = await readResourceLibrary();
+  sendJson(res, 200, await consolidateProjectMemoryFromResources(library.resources));
+}
+
+async function handleReferenceWebScaffold(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    const objective = String(body.objective || "").trim();
+    if (!objective) {
+      sendJson(res, 400, { error: "Descreva o site que voce quer criar." });
+      return;
+    }
+    const library = await readResourceLibrary();
+    const resource = findResourceById(library.resources, body.resourceId);
+    if (!resource) {
+      sendJson(res, 404, { error: "Nenhuma biblioteca de referencia cadastrada." });
+      return;
+    }
+    const guidedObjective = buildReferenceObjective(objective, resource);
+    const plan = await buildWebProjectPlan({
+      objective: guidedObjective,
+      appType: body.appType,
+      stack: body.stack || resource.siteIntelligence?.frameworks?.join(", "),
+      database: body.database,
+      auth: body.auth,
+      deployment: body.deployment,
+      fileContext: body.fileContext
+    });
+    const scaffold = await writeWebScaffold(plan, String(body.projectName || "").trim() || `${resource.title} guiado`);
+    sendJson(res, 200, {
+      ...plan,
+      reference: {
+        id: resource.id,
+        title: resource.title,
+        path: resource.path,
+        lessons: resource.siteIntelligence?.architectureLessons || []
+      },
+      scaffold,
+      message: `Site guiado por referencia criado em ${scaffold.path}`
+    });
+  } catch (error) {
+    sendJson(res, 500, { error: "Nao consegui criar site guiado por referencia.", detail: error.message });
+  }
+}
+
 async function handlePlan(req, res) {
   try {
     const body = await readJsonBody(req);
@@ -8995,6 +9278,12 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/memory") return handleMemory(req, res);
     if (url.pathname === "/api/knowledge") return handleKnowledge(req, res);
     if (url.pathname === "/api/resource-library") return handleResourceLibrary(req, res);
+    if (url.pathname === "/api/resource-library/search" && req.method === "GET") return handleResourceLibrarySearch(req, res);
+    if (url.pathname === "/api/resource-library/teach" && req.method === "GET") return handleResourceLibraryTeach(req, res);
+    if (url.pathname === "/api/resource-library/visual" && req.method === "GET") return handleResourceLibraryVisual(req, res);
+    if (url.pathname === "/api/resource-library/security" && req.method === "GET") return handleResourceLibrarySecurity(req, res);
+    if (url.pathname === "/api/resource-library/create-site" && req.method === "POST") return handleReferenceWebScaffold(req, res);
+    if (url.pathname === "/api/project-memory/consolidate" && req.method === "POST") return handleProjectMemoryConsolidate(req, res);
     if (url.pathname === "/api/files" && req.method === "GET") return handleFiles(res);
     if (url.pathname === "/api/attached-project") return handleAttachedProject(req, res);
     if (url.pathname === "/api/project-index") return handleProjectIndex(req, res);

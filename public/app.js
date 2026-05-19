@@ -114,6 +114,12 @@ const knowledgeListEl = document.querySelector("#knowledgeList");
 const resourceTitleEl = document.querySelector("#resourceTitle");
 const resourcePathEl = document.querySelector("#resourcePath");
 const scanResourceEl = document.querySelector("#scanResource");
+const resourceSearchEl = document.querySelector("#resourceSearch");
+const searchResourceEl = document.querySelector("#searchResource");
+const consolidateProjectMemoryEl = document.querySelector("#consolidateProjectMemory");
+const referenceSiteObjectiveEl = document.querySelector("#referenceSiteObjective");
+const createReferenceSiteEl = document.querySelector("#createReferenceSite");
+const resourceInsightOutputEl = document.querySelector("#resourceInsightOutput");
 const resourceListEl = document.querySelector("#resourceList");
 const fileListEl = document.querySelector("#fileList");
 const reloadFilesEl = document.querySelector("#reloadFiles");
@@ -1851,7 +1857,12 @@ function renderResourceLibrary(resources) {
         <p>Extensoes: ${escapeHtml(extensions || "nao mapeadas")}</p>
         <p>Requisitos: ${escapeHtml(requirements || "nenhum")}</p>
         ${webIntelligence}
-        <button class="ghost-button" type="button" data-resource-id="${escapeHtml(resource.id)}">Remover</button>
+        <div class="button-row">
+          <button class="ghost-button" type="button" data-resource-action="teach" data-resource-id="${escapeHtml(resource.id)}">Explicar</button>
+          <button class="ghost-button" type="button" data-resource-action="visual" data-resource-id="${escapeHtml(resource.id)}">Visual</button>
+          <button class="ghost-button" type="button" data-resource-action="security" data-resource-id="${escapeHtml(resource.id)}">Seguranca</button>
+          <button class="ghost-button" type="button" data-resource-action="remove" data-resource-id="${escapeHtml(resource.id)}">Remover</button>
+        </div>
       </article>
     `;
   }).join("");
@@ -2662,15 +2673,115 @@ scanResourceEl.addEventListener("click", async () => {
   }
 });
 
+searchResourceEl.addEventListener("click", async () => {
+  const query = resourceSearchEl.value.trim();
+  if (query.length < 2) {
+    resourceInsightOutputEl.textContent = "Digite uma busca com pelo menos 2 caracteres.";
+    return;
+  }
+  resourceInsightOutputEl.textContent = "Buscando nas bibliotecas...";
+  try {
+    const response = await fetch(`/api/resource-library/search?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Falha na busca.");
+    resourceInsightOutputEl.textContent = data.results?.length
+      ? data.results.map((item) => `${item.title} | score ${item.score}\n${item.summary || ""}`).join("\n\n")
+      : "Nenhuma biblioteca combinou com a busca.";
+  } catch (error) {
+    resourceInsightOutputEl.textContent = error.message;
+  }
+});
+
+consolidateProjectMemoryEl.addEventListener("click", async () => {
+  resourceInsightOutputEl.textContent = "Consolidando memoria do projeto...";
+  try {
+    const response = await fetch("/api/project-memory/consolidate", { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Falha ao consolidar memoria.");
+    fillProfile(data.profile || {});
+    resourceInsightOutputEl.textContent = [
+      `Recursos usados: ${data.resourcesUsed || 0}`,
+      `Stacks: ${(data.frameworks || []).join(", ") || "nenhuma"}`,
+      `Padroes: ${(data.patterns || []).join(", ") || "nenhum"}`,
+      `Licoes: ${(data.lessons || []).join(" ") || "nenhuma"}`
+    ].join("\n");
+  } catch (error) {
+    resourceInsightOutputEl.textContent = error.message;
+  }
+});
+
+createReferenceSiteEl.addEventListener("click", async () => {
+  const objective = referenceSiteObjectiveEl.value.trim();
+  if (!objective) {
+    resourceInsightOutputEl.textContent = "Descreva o site que sera criado com referencia.";
+    return;
+  }
+  const firstResourceButton = resourceListEl.querySelector("[data-resource-action='teach']");
+  const resourceId = firstResourceButton?.dataset.resourceId || "";
+  createReferenceSiteEl.disabled = true;
+  resourceInsightOutputEl.textContent = "Criando site guiado pela biblioteca mais recente...";
+  try {
+    const response = await fetch("/api/resource-library/create-site", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        objective,
+        resourceId,
+        projectName: resourceTitleEl.value.trim() || "site-guiado",
+        appType: webAppTypeEl.value,
+        stack: webStackEl.value,
+        database: webDatabaseEl.value,
+        auth: webAuthEl.value,
+        deployment: webDeploymentEl.value
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || data.error || "Falha ao criar site guiado.");
+    resourceInsightOutputEl.textContent = [
+      data.message,
+      `Referencia: ${data.reference?.title || "-"}`,
+      `Pasta: ${data.scaffold?.path || "-"}`,
+      "",
+      "Arquivos:",
+      ...(data.scaffold?.files || []).slice(0, 12)
+    ].join("\n");
+  } catch (error) {
+    resourceInsightOutputEl.textContent = error.message;
+  } finally {
+    createReferenceSiteEl.disabled = false;
+  }
+});
+
 resourceListEl.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-resource-id]");
   if (!button) return;
 
-  const response = await fetch(`/api/resource-library?id=${encodeURIComponent(button.dataset.resourceId)}`, {
-    method: "DELETE"
-  });
-  const data = await response.json();
-  renderResourceLibrary(data.resources || []);
+  const action = button.dataset.resourceAction || "remove";
+  if (action === "remove") {
+    const response = await fetch(`/api/resource-library?id=${encodeURIComponent(button.dataset.resourceId)}`, {
+      method: "DELETE"
+    });
+    const data = await response.json();
+    renderResourceLibrary(data.resources || []);
+    return;
+  }
+
+  const endpoint = {
+    teach: "/api/resource-library/teach",
+    visual: "/api/resource-library/visual",
+    security: "/api/resource-library/security"
+  }[action];
+  if (!endpoint) return;
+
+  resourceInsightOutputEl.textContent = "Gerando leitura da biblioteca...";
+  try {
+    const response = await fetch(`${endpoint}?id=${encodeURIComponent(button.dataset.resourceId)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || data.error || "Falha na leitura da biblioteca.");
+    resourceInsightOutputEl.textContent = data.explanation || JSON.stringify(data, null, 2);
+  } catch (error) {
+    resourceInsightOutputEl.textContent = error.message;
+  }
 });
 
 savePermissionsEl.addEventListener("click", async () => {

@@ -144,6 +144,38 @@ assert(scannedResource.resources.some((item) => item.title === "Aurora App"), "r
 assert(scannedResource.resources[0].stats?.totalFiles > 0, "scanned resource should include file stats");
 assert(scannedResource.resources[0].siteIntelligence?.isWebsite, "scanned resource should detect website intelligence");
 assert(Array.isArray(scannedResource.resources[0].siteIntelligence?.architectureLessons), "website intelligence should include reusable lessons");
+const scannedResourceId = scannedResource.resources[0].id;
+
+const resourceSearch = await request("/api/resource-library/search?q=site%20css");
+assert(resourceSearch.results?.length >= 1, "resource intelligence search should return matches");
+
+const resourceTeach = await request(`/api/resource-library/teach?id=${encodeURIComponent(scannedResourceId)}`);
+assert(resourceTeach.explanation?.includes("Como foi construido"), "resource teacher mode should explain architecture");
+
+const resourceVisual = await request(`/api/resource-library/visual?id=${encodeURIComponent(scannedResourceId)}`);
+assert(Array.isArray(resourceVisual.recommendations), "resource visual analysis should include recommendations");
+
+const resourceSecurity = await request(`/api/resource-library/security?id=${encodeURIComponent(scannedResourceId)}`);
+assert(typeof resourceSecurity.summary?.high === "number", "resource security audit should include severity summary");
+
+const consolidatedMemory = await request("/api/project-memory/consolidate", { method: "POST" });
+assert(consolidatedMemory.profile?.notes?.includes("Memoria consolidada"), "project memory should consolidate resource lessons");
+
+const referenceSite = await request("/api/resource-library/create-site", {
+  method: "POST",
+  body: JSON.stringify({
+    objective: "Criar um site simples de teste usando uma biblioteca de referencia.",
+    resourceId: scannedResourceId,
+    projectName: "smoke-reference-site",
+    appType: "landing",
+    stack: "node",
+    database: "sqlite",
+    auth: "sem login",
+    deployment: "local"
+  })
+});
+assert(referenceSite.scaffold?.path, "reference web scaffold should create a project");
+await rm(path.resolve(process.cwd(), "..", referenceSite.scaffold.path), { recursive: true, force: true });
 
 const behaviorSettings = await request("/api/behavior-settings");
 assert(typeof behaviorSettings.settings?.freeBuilder !== "undefined", "behavior settings should include freeBuilder");

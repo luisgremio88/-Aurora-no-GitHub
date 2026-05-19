@@ -26,6 +26,11 @@ Mais do que um chat, a Aurora e um laboratorio de produto, automacao e engenhari
 - **Roteamento hibrido**: pode usar Gemini ou OpenRouter quando configurado, escolhendo modelo por tipo de tarefa.
 - **Modo Codex/Executor**: prepara contexto, cria fila de execucao, roda checks seguros e registra evidencias.
 - **Backup de inteligencia de sites**: cadastra pastas de sites baixados, extrai paginas, stack, padroes de layout, tokens visuais e licoes de arquitetura para futuras criacoes.
+- **Biblioteca pesquisavel**: busca referencias por stack, layout, componentes, rotas, cores e licoes aprendidas.
+- **Memoria de projeto consolidada**: transforma aprendizados das bibliotecas em notas persistentes do perfil do projeto.
+- **Criacao guiada por referencia**: gera scaffold web usando uma biblioteca cadastrada como inspiracao arquitetural, sem copiar marca, textos, imagens ou codigo proprietario.
+- **Analise visual e professor**: resume paleta, fontes, assets, hierarquia e explica como o site foi construido.
+- **Auditoria de bibliotecas baixadas**: procura scripts externos, possivel ofuscacao, HTML dinamico sensivel e segredos aparentes.
 - **Seguranca por construcao**: bloqueia segredos versionados, ignora bancos locais, protege chaves com DPAPI no Windows e limita operacoes sensiveis por permissao.
 - **Edicao assistida**: gera proposta, mostra diff, aplica com backup e registra historico.
 - **Git/GitHub integrado**: detecta branch, remote, status e diffs mesmo no Windows quando o PATH ainda nao foi atualizado.
