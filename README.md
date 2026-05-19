@@ -1,6 +1,95 @@
 # Aurora Local
 
-Primeira versao da IA pessoal local usando Ollama.
+[![Security check](https://github.com/luisgremio88/-Aurora-no-GitHub/actions/workflows/security-check.yml/badge.svg)](https://github.com/luisgremio88/-Aurora-no-GitHub/actions/workflows/security-check.yml)
+
+Aurora Local e uma IA pessoal e ferramenta de desenvolvimento criada para rodar no computador do usuario, com foco em privacidade, automacao, engenharia de software e assistencia pratica para projetos reais.
+
+O projeto combina chat com modelos locais via Ollama, roteamento opcional para IAs externas, memoria persistente, leitura controlada de arquivos, planejamento de implementacao, execucao segura de checks, edicao assistida com backup, SQL local, geracao de documentos, fabrica web e integracao com Git/GitHub.
+
+## Por que este projeto existe
+
+Eu criei a Aurora para estudar e construir, na pratica, uma assistente local capaz de apoiar fluxo de desenvolvimento de ponta a ponta:
+
+- entender um projeto anexado;
+- mapear arquivos, funcoes, rotas e riscos;
+- planejar melhorias antes de alterar codigo;
+- executar validacoes seguras;
+- registrar evidencias;
+- proteger segredos e dados locais;
+- manter historico com Git e backup no GitHub.
+
+Mais do que um chat, a Aurora e um laboratorio de produto, automacao e engenharia defensiva.
+
+## Destaques para avaliacao tecnica
+
+- **IA local primeiro**: funciona com Ollama e pode continuar operando sem enviar dados para provedores externos.
+- **Roteamento hibrido**: pode usar Gemini ou OpenRouter quando configurado, escolhendo modelo por tipo de tarefa.
+- **Modo Codex/Executor**: prepara contexto, cria fila de execucao, roda checks seguros e registra evidencias.
+- **Seguranca por construcao**: bloqueia segredos versionados, ignora bancos locais, protege chaves com DPAPI no Windows e limita operacoes sensiveis por permissao.
+- **Edicao assistida**: gera proposta, mostra diff, aplica com backup e registra historico.
+- **Git/GitHub integrado**: detecta branch, remote, status e diffs mesmo no Windows quando o PATH ainda nao foi atualizado.
+- **Smoke tests**: cobre endpoints principais como health, sessoes, provedores de IA, SQL seguro, executor, diagnostico, benchmark e seguranca.
+- **Arquitetura simples e auditavel**: Node.js puro no backend, frontend HTML/CSS/JS e SQLite local.
+
+## Stack
+
+- Node.js 22
+- JavaScript ES Modules
+- HTML, CSS e JavaScript no frontend
+- SQLite local
+- Ollama para IA local
+- Git/GitHub para versionamento
+- PowerShell para automacoes no Windows
+- GitHub Actions para checagem automatica
+
+## Status atual
+
+- `npm run check`: valida sintaxe do backend e frontend.
+- `npm test`: roda smoke test dos endpoints principais.
+- `npm run security`: procura segredos e arquivos sensiveis rastreados pelo Git.
+- Repositorio conectado ao GitHub em `main`.
+
+## Seguranca e privacidade
+
+Este repositorio foi preparado para ser publico sem publicar dados locais.
+
+Nao entram no Git:
+
+- banco SQLite local;
+- historico de conversa;
+- chaves de API;
+- arquivos gerados;
+- logs;
+- backups;
+- recursos externos grandes;
+- ComfyUI e modelos locais.
+
+As chaves opcionais ficam em `data/secrets/`, protegidas pelo DPAPI do Windows para o usuario atual. O scanner de seguranca roda localmente e tambem no GitHub Actions a cada push ou pull request.
+
+## Demonstracao rapida
+
+```powershell
+npm run check
+npm run security
+npm test
+```
+
+Com a Aurora rodando:
+
+```text
+http://localhost:3123
+```
+
+## Estrutura principal
+
+```text
+server.js                 Backend HTTP, IA, ferramentas, seguranca e endpoints
+public/                   Interface web local
+scripts/                  Automacoes PowerShell para iniciar, configurar e manter
+tests/smoke.mjs           Smoke test dos fluxos principais
+.github/workflows/        Checagem automatica no GitHub
+AGENTS.md                 Guia rapido para agentes de codigo
+```
 
 ## Como rodar
 
@@ -13,7 +102,7 @@ ollama serve
 2. Em outro terminal, suba a interface:
 
 ```powershell
-cd "C:\Users\Suporte\OneDrive - CNB RS\Área de Trabalho\newGame\ai-assistant"
+cd "G:\Meu Drive\AuroraLocal\ai-assistant"
 npm start
 ```
 
