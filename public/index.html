@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aurora Local</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <nav class="app-sidebar" aria-label="Navegacao principal">
+        <div class="app-menu">
+          <span>Aurora</span>
+          <span>File</span>
+          <span>Edit</span>
+          <span>View</span>
+          <span>Help</span>
+        </div>
+        <div class="sidebar-tools" aria-label="Atalhos">
+          <button class="icon-button" type="button" title="Painel">□</button>
+          <button class="icon-button" type="button" title="Buscar">@</button>
+        </div>
+        <div class="sidebar-actions">
+          <button class="sidebar-action active" type="button" data-action="new-chat">New Agent <span>Ctrl+N</span></button>
+          <button class="sidebar-action" type="button" data-open-panel="Capacidades">Marketplace</button>
+          <button class="sidebar-action" type="button" data-open-panel="Projeto anexado">Projeto local</button>
+          <button class="sidebar-action" type="button" data-open-panel="Engenharia">Engenharia</button>
+          <button class="sidebar-action" type="button" data-open-panel="Atividade">Atividade</button>
+        </div>
+        <div class="sidebar-footer">
+          <div class="user-badge">LD</div>
+          <div>
+            <strong>Luis Dias</strong>
+            <span>Aurora Local</span>
+          </div>
+          <button class="icon-button" type="button" data-open-panel="Ferramentas" title="Permissoes">...</button>
+        </div>
+      </nav>
+      <section class="chat-shell" aria-label="Conversa">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Home / Local</p>
+            <h1>Aurora</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-button" id="clearChat" type="button">Limpar</button>
+            <button class="ghost-button" id="toggleWorkspace" type="button" aria-expanded="false" aria-controls="workspacePanel">Ferramentas</button>
+            <div class="status" id="status">Conectando...</div>
+          </div>
+        </header>
+
+        <div class="messages" id="messages"></div>
+
+        <form class="composer" id="chatForm">
+          <div class="composer-context">
+            <span>Home</span>
+            <span>Local</span>
+          </div>
+          <textarea id="prompt" rows="3" placeholder="Plan, Build, / para comandos, @ para contexto"></textarea>
+          <div class="composer-actions">
+            <button class="round-button" type="button" data-open-panel="Projeto anexado" title="Anexar projeto">+</button>
+            <select id="mode">
+              <option value="general">Auto</option>
+              <option value="code" selected>Programacao</option>
+              <option value="database">Banco</option>
+              <option value="architect">Arquitetura</option>
+              <option value="security">Seguranca</option>
+            </select>
+            <button class="send-button" type="submit" title="Enviar">↑</button>
+          </div>
+          <div class="composer-suggestions">
+            <button class="suggestion-chip" type="button" data-prompt="Planeje uma melhoria para o projeto anexado e liste os arquivos provaveis.">Plan New Idea</button>
+            <button class="suggestion-chip" type="button" data-prompt="Analise as IAs e ferramentas disponiveis nesta instancia da Aurora.">Ver ferramentas</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="side-panel" id="workspacePanel" aria-label="Workspace da Aurora">
+        <section class="workspace-hero">
+          <div>
+            <p class="eyebrow">Workspace local</p>
+            <h2>Aurora Local</h2>
+            <p>Ferramentas avancadas ficam aqui quando voce precisar. No dia a dia, escreva no chat e a Aurora escolhe o caminho.</p>
+          </div>
+          <button class="ghost-button close-workspace" id="closeWorkspace" type="button">Fechar</button>
+          <div class="workspace-path">G:\Meu Drive\AuroraLocal\ai-assistant</div>
+        </section>
+
+        <section class="quick-launch" aria-label="Atalhos de trabalho">
+          <button class="quick-card" type="button" data-open-panel="Fabrica Web">
+            <strong>Construir web</strong>
+            <span>Scaffold, preview localhost e checklist.</span>
+          </button>
+          <button class="quick-card" type="button" data-open-panel="Executor avancado">
+            <strong>Executar tarefa</strong>
+            <span>Fila segura, checks e proximos passos.</span>
+          </button>
+          <button class="quick-card" type="button" data-open-panel="Ferramentas">
+            <strong>Permissoes</strong>
+            <span>Controle de arquivos, comandos e SQL.</span>
+          </button>
+          <button class="quick-card" type="button" data-open-panel="Capacidades">
+            <strong>Plugins</strong>
+            <span>Ferramentas instalaveis e radar local.</span>
+          </button>
+          <button class="quick-card" type="button" data-open-panel="Engenharia">
+            <strong>Repositorio</strong>
+            <span>Arquitetura, Git, GitHub e evidencias.</span>
+          </button>
+        </section>
+
+        <details class="profile-block" open>
+          <summary>Atividade</summary>
+          <div class="profile-grid">
+            <div class="button-row">
+              <button class="ghost-button" id="reloadActivity" type="button">Atualizar</button>
+              <button class="ghost-button" id="openChangesFromActivity" type="button">Ver diffs</button>
+            </div>
+            <div class="agent-activity" id="activityTimeline">Nenhuma atividade carregada.</div>
+          </div>
+        </details>
+
+        <div class="panel-block">
+          <label for="model">Modelo</label>
+          <select id="model"></select>
+        </div>
+
+        <details class="profile-block">
+          <summary>Rotas de modelo</summary>
+          <div class="profile-grid">
+            <label for="routeGeneral">Geral</label>
+            <select id="routeGeneral"></select>
+            <label for="routeCode">Programacao</label>
+            <select id="routeCode"></select>
+            <label for="routeDatabase">Banco</label>
+            <select id="routeDatabase"></select>
+            <label for="routeArchitect">Arquitetura</label>
+            <select id="routeArchitect"></select>
+            <label for="routeFallback">Fallback</label>
+            <select id="routeFallback"></select>
+            <button id="saveModelRoutes" type="button">Salvar rotas</button>
+            <button class="ghost-button" id="analyzeModels" type="button">Analisar modelos</button>
+            <button class="ghost-button" id="applyRecommendedRoutes" type="button">Aplicar recomendado</button>
+            <p class="context-note" id="modelRoutesStatus">Rotas ainda nao carregadas.</p>
+            <div class="plan-output" id="modelAdvisorOutput">Nenhuma analise de modelos executada.</div>
+            <div class="model-suggestions">
+              <strong>Modelos bons para programacao</strong>
+              <code>ollama pull qwen2.5-coder:7b</code>
+              <code>ollama pull qwen2.5-coder:14b</code>
+              <code>ollama pull deepseek-r1:14b</code>
+              <code>ollama pull deepseek-coder:6.7b</code>
+            </div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Portabilidade</summary>
+          <div class="profile-grid">
+            <button class="ghost-button" id="checkPortable" type="button">Checar transferencia</button>
+            <div class="plan-output" id="portableOutput">Nenhuma checagem executada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Manutencao</summary>
+          <div class="profile-grid">
+            <button class="ghost-button" id="checkMaintenance" type="button">Checar memoria</button>
+            <button class="ghost-button" id="compactSession" type="button">Compactar conversa</button>
+            <button class="ghost-button" id="optimizeDatabase" type="button">Otimizar banco</button>
+            <div class="plan-output" id="maintenanceOutput">Nenhuma checagem executada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Capacidades</summary>
+          <div class="profile-grid">
+            <button class="ghost-button" id="checkCapabilities" type="button">Ver ferramentas</button>
+            <button class="ghost-button" id="checkPlugins" type="button">Ver plugins</button>
+            <button class="ghost-button" id="checkAiProviders" type="button">Ver IAs</button>
+            <button class="ghost-button" id="checkImageProviders" type="button">Ver imagens</button>
+            <button class="ghost-button" id="checkToolRadar" type="button">Radar de devtools</button>
+            <div class="knowledge-list" id="capabilitiesOutput">Nenhuma checagem executada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Engenharia</summary>
+          <div class="profile-grid">
+            <textarea id="engineeringTaskObjective" rows="3" placeholder="Ex: melhorar o executor para registrar evidencias e diffs."></textarea>
+            <button id="createEngineeringTask" type="button">Criar tarefa local</button>
+            <button class="ghost-button" id="reloadEngineeringTasks" type="button">Atualizar tarefas</button>
+            <div class="knowledge-list" id="engineeringTaskList">Nenhuma tarefa local carregada.</div>
+            <button class="ghost-button" id="checkRepositoryEngineering" type="button">Analisar repositorio</button>
+            <div class="knowledge-list" id="repositoryEngineeringOutput">Nenhuma analise executada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Benchmark 60%</summary>
+          <div class="profile-grid">
+            <button class="ghost-button" id="runBenchmark" type="button">Medir progresso</button>
+            <div class="knowledge-list" id="benchmarkOutput">Nenhum benchmark executado.</div>
+          </div>
+        </details>
+
+        <div class="panel-block">
+          <label for="sessionSelect">Sessao</label>
+          <select id="sessionSelect"></select>
+          <div class="button-row">
+            <button class="ghost-button" id="newSession" type="button">Nova</button>
+            <button class="ghost-button" id="deleteSession" type="button">Apagar</button>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <h2>Projeto anexado</h2>
+          <input id="attachedProjectPath" type="text" placeholder="Ex: C:\Projetos\MeuApp" />
+          <div class="button-row">
+            <button id="attachProject" type="button">Anexar</button>
+            <button class="ghost-button" id="reloadAttachedProject" type="button">Atualizar</button>
+          </div>
+          <div class="index-summary" id="attachedProjectSummary">Nenhum projeto anexado.</div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title-row">
+            <h2>Indice do projeto</h2>
+            <button class="ghost-button" id="buildIndex" type="button">Gerar</button>
+          </div>
+          <div class="index-summary" id="indexSummary">Indice ainda nao gerado.</div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title-row">
+            <h2>Mapa de codigo</h2>
+            <button class="ghost-button" id="buildCodeMap" type="button">Gerar</button>
+          </div>
+          <div class="index-summary" id="codeMapSummary">Mapa ainda nao gerado.</div>
+        </div>
+
+        <details class="profile-block">
+          <summary>Perfil do projeto</summary>
+          <div class="profile-grid">
+            <label for="profileStack">Stack</label>
+            <textarea id="profileStack" rows="2" placeholder="Ex: Node.js, Ollama, frontend HTML/CSS/JS"></textarea>
+            <label for="profileDatabase">Banco</label>
+            <textarea id="profileDatabase" rows="2" placeholder="Ex: SQLite local, PostgreSQL em producao"></textarea>
+            <label for="profileRun">Rodar</label>
+            <textarea id="profileRun" rows="2" placeholder="Ex: npm start"></textarea>
+            <label for="profileTest">Testar</label>
+            <textarea id="profileTest" rows="2" placeholder="Ex: npm test, node --check server.js"></textarea>
+            <label for="profileGoals">Objetivos</label>
+            <textarea id="profileGoals" rows="3" placeholder="O que este projeto deve construir?"></textarea>
+            <label for="profileNotes">Notas</label>
+            <textarea id="profileNotes" rows="3" placeholder="Decisoes, padroes e cuidados importantes."></textarea>
+            <button id="saveProfile" type="button">Salvar perfil</button>
+            <p class="context-note" id="profileStatus">Perfil ainda nao salvo.</p>
+          </div>
+        </details>
+
+        <div class="panel-block">
+          <h2>Planejar implementacao</h2>
+          <textarea id="planTask" rows="4" placeholder="Ex: criar historico por sessoes com lista lateral."></textarea>
+          <button id="generatePlan" type="button">Planejar</button>
+          <div class="plan-output" id="planOutput">Nenhum plano gerado.</div>
+          <div class="plan-files" id="planFiles"></div>
+        </div>
+
+        <details class="profile-block">
+          <summary>Missoes</summary>
+          <div class="profile-grid">
+            <textarea id="missionObjective" rows="4" placeholder="Ex: continuar o remake de Digimon 3 com seguranca e relatorios."></textarea>
+            <button id="createMission" type="button">Criar missao</button>
+            <button class="ghost-button" id="reloadMissions" type="button">Atualizar missoes</button>
+            <div class="knowledge-list" id="missionList">Nenhuma missao carregada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Executor avancado</summary>
+          <div class="profile-grid">
+            <textarea id="executorObjective" rows="4" placeholder="Ex: construir um site completo com login, banco, seguranca e testes."></textarea>
+            <div class="button-row">
+              <button id="prepareExecutor" type="button">Preparar execucao</button>
+              <button class="ghost-button" id="runCodexExecutor" type="button">Rodar ciclo Codex</button>
+            </div>
+            <div class="plan-output" id="executorOutput">Nenhuma execucao preparada.</div>
+            <div class="plan-files" id="executorFiles"></div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Fabrica Web</summary>
+          <div class="profile-grid">
+            <textarea id="webObjective" rows="4" placeholder="Ex: criar um SaaS com login, painel admin, PostgreSQL, auditoria e deploy seguro."></textarea>
+            <label for="webProjectName">Nome do projeto</label>
+            <input id="webProjectName" type="text" placeholder="Ex: meu-saas-seguro" />
+            <label for="webAppType">Tipo</label>
+            <select id="webAppType">
+              <option value="fullstack">Full-stack</option>
+              <option value="dashboard">Dashboard/admin</option>
+              <option value="saas">SaaS</option>
+              <option value="commerce">E-commerce</option>
+              <option value="api">API</option>
+            </select>
+            <label for="webStack">Stack</label>
+            <select id="webStack">
+              <option value="next-prisma">Next.js + Prisma</option>
+              <option value="vite-express">Vite + Express</option>
+              <option value="node-simple">Node simples</option>
+            </select>
+            <label for="webDatabase">Banco</label>
+            <select id="webDatabase">
+              <option value="postgresql">PostgreSQL</option>
+              <option value="sqlite">SQLite</option>
+              <option value="mysql">MySQL</option>
+            </select>
+            <label for="webAuth">Autenticacao</label>
+            <select id="webAuth">
+              <option value="email-rbac">Email/senha + RBAC</option>
+              <option value="oauth-rbac">OAuth + RBAC</option>
+              <option value="api-key">API keys</option>
+              <option value="public">Sem login na v1</option>
+            </select>
+            <label for="webDeployment">Deploy</label>
+            <select id="webDeployment">
+              <option value="docker-vps">Docker/VPS</option>
+              <option value="vercel-postgres">Vercel + Postgres</option>
+              <option value="local-first">Local primeiro</option>
+            </select>
+            <button id="prepareWebProject" type="button">Projetar sistema</button>
+            <button class="ghost-button" id="createWebScaffold" type="button">Criar scaffold</button>
+            <div class="plan-output" id="webOutput">Nenhum sistema web preparado.</div>
+            <div class="plan-files" id="webFiles"></div>
+            <div class="web-preview-panel">
+              <div class="web-preview-toolbar">
+                <label for="webPreviewUrl">Preview local</label>
+                <input id="webPreviewUrl" type="url" value="http://localhost:3000" />
+                <button class="ghost-button" id="checkWebPreview" type="button">Checar</button>
+                <button id="loadWebPreview" type="button">Carregar</button>
+                <button class="ghost-button" id="refreshWebPreview" type="button">Recarregar</button>
+              </div>
+              <label class="inline-toggle"><input id="autoRefreshWebPreview" type="checkbox" /> Atualizar automaticamente</label>
+              <p class="context-note" id="webPreviewStatus">Inicie o projeto gerado em outra porta e carregue a URL aqui.</p>
+              <iframe id="webPreviewFrame" title="Preview local da Fabrica Web" sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts"></iframe>
+            </div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Criador de jogos</summary>
+          <div class="profile-grid">
+            <textarea id="gameObjective" rows="4" placeholder="Ex: criar um RPG de criaturas com mapa, batalha em turno, evolucao e save."></textarea>
+            <button id="prepareGame" type="button">Preparar jogo</button>
+            <div class="plan-output" id="gameOutput">Nenhum jogo preparado.</div>
+            <div class="plan-files" id="gameFiles"></div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Seguranca</summary>
+          <div class="profile-grid">
+            <textarea id="securityObjective" rows="4" placeholder="Ex: proteger edicoes de arquivos, SQL e comandos locais."></textarea>
+            <button id="generateSecurityPlan" type="button">Criar plano seguro</button>
+            <div class="plan-output" id="securityOutput">Nenhum plano de seguranca gerado.</div>
+            <div class="plan-files" id="securityFiles"></div>
+            <button class="ghost-button" id="runSecurityAudit" type="button">Auditoria rapida</button>
+            <div class="audit-controls">
+              <select id="securityAuditScope" aria-label="Escopo da auditoria">
+                <option value="app">Aurora</option>
+                <option value="workspace">Workspace</option>
+              </select>
+              <select id="securityAuditSeverity" aria-label="Filtrar severidade">
+                <option value="all">Todas severidades</option>
+                <option value="high">Altas</option>
+                <option value="medium">Medias</option>
+                <option value="low">Baixas</option>
+              </select>
+              <input id="securityAuditSearch" type="search" placeholder="Filtrar achados..." />
+            </div>
+            <div class="knowledge-list" id="securityAudit">Nenhuma auditoria executada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Conhecimentos</summary>
+          <div class="profile-grid">
+            <label for="knowledgeCategory">Categoria</label>
+            <select id="knowledgeCategory">
+              <option value="programacao">Programacao</option>
+              <option value="banco">Banco</option>
+              <option value="arquitetura">Arquitetura</option>
+              <option value="padrao">Padrao</option>
+              <option value="geral">Geral</option>
+            </select>
+            <label for="knowledgeTitle">Titulo</label>
+            <input id="knowledgeTitle" type="text" placeholder="Ex: Padrao de endpoints" />
+            <label for="knowledgeContent">Conteudo</label>
+            <textarea id="knowledgeContent" rows="4" placeholder="Regra, snippet, decisao ou convencao que a Aurora deve lembrar."></textarea>
+            <button id="saveKnowledge" type="button">Salvar conhecimento</button>
+            <div class="knowledge-list" id="knowledgeList"></div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Bibliotecas externas</summary>
+          <div class="profile-grid">
+            <label for="resourceTitle">Titulo</label>
+            <input id="resourceTitle" type="text" placeholder="Ex: Diplomado IA" />
+            <label for="resourcePath">Pasta</label>
+            <textarea id="resourcePath" rows="3" placeholder="C:\\Users\\Suporte\\OneDrive - CNB RS\\Área de Trabalho\\Diplomado-master"></textarea>
+            <button id="scanResource" type="button">Cadastrar biblioteca</button>
+            <div class="knowledge-list" id="resourceList">Nenhuma biblioteca cadastrada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Ferramentas</summary>
+          <div class="profile-grid">
+            <label>Permissoes</label>
+            <label><input id="permRead" type="checkbox" /> Ler arquivos</label>
+            <label><input id="permPropose" type="checkbox" /> Propor edicoes</label>
+            <label><input id="permApply" type="checkbox" /> Aplicar edicoes</label>
+            <label><input id="permCommands" type="checkbox" /> Rodar comandos seguros</label>
+            <label><input id="permSqlWrite" type="checkbox" /> SQL de escrita</label>
+            <button id="savePermissions" type="button">Salvar permissoes</button>
+            <label><input id="freeBuilderMode" type="checkbox" /> Modo construtor livre responsavel</label>
+            <label><input id="advancedExecutorMode" type="checkbox" /> Modo executor avancado</label>
+            <button class="ghost-button" id="saveBehavior" type="button">Salvar comportamento</button>
+            <div class="plan-output" id="behaviorStatus">Comportamento nao carregado.</div>
+            <button id="runDiagnostics" type="button">Diagnostico</button>
+            <button id="runNodeCheck" type="button">Checar JS</button>
+            <div class="plan-output" id="toolOutput">Nenhuma ferramenta executada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>Historico de alteracoes</summary>
+          <div class="profile-grid">
+            <button id="reloadChanges" type="button">Atualizar historico</button>
+            <div class="knowledge-list" id="changeList"></div>
+            <div class="plan-output" id="changeDetails">Nenhuma alteracao selecionada.</div>
+          </div>
+        </details>
+
+        <details class="profile-block">
+          <summary>SQL</summary>
+          <div class="profile-grid">
+            <label for="localDatabasePath">Banco Docker criado pela Aurora</label>
+            <input id="localDatabasePath" type="text" placeholder="generated/databases/meu-banco-..." />
+            <div class="button-row">
+              <button class="ghost-button" id="databaseDockerStatus" type="button">Status Docker</button>
+              <button class="ghost-button" id="databaseDockerUp" type="button">Subir Docker</button>
+            </div>
+            <button class="ghost-button" id="databaseDockerDown" type="button">Parar Docker</button>
+            <div class="plan-output" id="databaseDockerOutput">Nenhum banco Docker controlado.</div>
+            <button class="ghost-button" id="loadSqlSchema" type="button">Ver schema</button>
+            <div class="sql-schema" id="sqlSchema">Schema nao carregado.</div>
+            <textarea id="sqlInput" rows="5" placeholder="SELECT name FROM sqlite_master WHERE type = 'table';"></textarea>
+            <button id="runSql" type="button">Rodar SQL</button>
+            <button class="ghost-button" id="explainSql" type="button">EXPLAIN</button>
+            <button class="ghost-button" id="analyzeSql" type="button">Analisar SQL</button>
+            <div class="plan-output" id="sqlOutput">Nenhum SQL executado.</div>
+            <div class="plan-output" id="sqlAnalysis">Nenhuma analise gerada.</div>
+            <button class="ghost-button" id="loadSqlHistory" type="button">Historico SQL</button>
+            <div class="knowledge-list" id="sqlHistory">Nenhuma consulta recente carregada.</div>
+          </div>
+        </details>
+
+        <div class="panel-block">
+          <div class="panel-title-row">
+            <h2>Arquivos</h2>
+            <button class="ghost-button" id="reloadFiles" type="button">Atualizar</button>
+          </div>
+          <form class="search-row" id="searchForm">
+            <input id="searchInput" type="search" placeholder="Buscar arquivo ou texto..." />
+            <button class="ghost-button" type="submit">Buscar</button>
+          </form>
+          <button class="ghost-button" id="semanticSearch" type="button">Busca semantica leve</button>
+          <div class="search-results" id="searchResults"></div>
+          <div class="file-list" id="fileList"></div>
+          <p class="context-note" id="fileContextStatus">Nenhum arquivo anexado.</p>
+        </div>
+
+        <div class="panel-block">
+          <h2>Editar arquivo</h2>
+          <input id="editPath" type="text" placeholder="Arquivo selecionado ou attached-project/caminho/do/arquivo.js" />
+          <textarea id="editTask" rows="4" placeholder="Ex: adicione uma secao explicando como iniciar o servidor."></textarea>
+          <button id="proposeEdit" type="button">Gerar proposta</button>
+          <div class="edit-preview" id="editPreview">Nenhuma proposta gerada.</div>
+          <label class="proposal-label" for="proposalText">Proposta editavel</label>
+          <textarea id="proposalText" rows="8" placeholder="A proposta gerada pela IA aparece aqui para ajustes antes de aplicar."></textarea>
+          <button class="ghost-button" id="previewPatch" type="button" disabled>Gerar patch</button>
+          <button class="apply-button" id="applyEdit" type="button" disabled>Aplicar proposta</button>
+          <button class="ghost-button" id="runEditCycle" type="button">Editar + testar</button>
+        </div>
+
+        <details class="profile-block">
+          <summary>Documentos</summary>
+          <div class="profile-grid">
+            <label for="documentType">Tipo</label>
+            <select id="documentType">
+              <option value="markdown">Markdown</option>
+              <option value="csv">CSV para Excel</option>
+              <option value="html">HTML para Word</option>
+            </select>
+            <label for="documentTitle">Titulo</label>
+            <input id="documentTitle" type="text" placeholder="Ex: Relatorio de seguranca" />
+            <label for="documentContent">Conteudo</label>
+            <textarea id="documentContent" rows="6" placeholder="Texto, itens ou dados que devem entrar no documento."></textarea>
+            <button id="createDocument" type="button">Criar documento</button>
+            <div class="plan-output" id="documentOutput">Nenhum documento criado.</div>
+          </div>
+        </details>
+
+        <div class="panel-block">
+          <label for="memoryText">Memoria</label>
+          <textarea id="memoryText" rows="4" placeholder="Ex: O usuario prefere respostas em portugues direto."></textarea>
+          <button id="saveMemory" type="button">Guardar</button>
+        </div>
+
+        <div class="panel-block">
+          <h2>Notas lembradas</h2>
+          <ul class="memory-list" id="memoryList"></ul>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

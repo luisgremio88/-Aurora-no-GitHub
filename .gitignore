@@ -1,0 +1,16 @@
+node_modules/
+node_modules.partial-*/
+data/secrets/
+data/
+data/*.sqlite
+data/*.sqlite-*
+data/*-index.json
+data/*-code-map.json
+data/attached-project.json
+data/chat-history.json
+data/edit-sandbox.md*
+external-resources/
+generated/
+tools/ComfyUI/
+tools/ComfyUI-master.zip
+*.log
