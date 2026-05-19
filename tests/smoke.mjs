@@ -207,6 +207,17 @@ assert(imageChat.message?.includes("/generated/images/"), "image chat should cre
 assert(imageChat.image?.url?.includes("/generated/images/"), "image chat should return image metadata for inline preview");
 assert(imageChat.image?.type === "image/svg+xml", "image chat should return svg image type");
 
+const animeImageChat = await request("/api/chat", {
+  method: "POST",
+  body: JSON.stringify({
+    mode: "general",
+    imageProvider: "svg",
+    messages: [{ role: "user", content: "Crie um personagem de anime original." }]
+  })
+});
+assert(animeImageChat.message?.includes("/generated/images/"), "anime character prompt should route to image creation");
+assert(animeImageChat.image?.url?.includes("/generated/images/"), "anime character prompt should return image metadata");
+
 const sessions = await request("/api/sessions");
 assert(Array.isArray(sessions.sessions), "sessions response should include sessions array");
 

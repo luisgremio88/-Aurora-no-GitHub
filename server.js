@@ -2479,16 +2479,25 @@ function isImageRequest(text) {
     && /\b(motores? de imagem|provedores? de imagem|ferramentas? de imagem|apis?|chaves?|gemini|openrouter|comfyui|nano banana)\b/i.test(value);
   if (asksAboutImageTools) return false;
 
-  const hasImageSubject = /\b(imagem|foto|desenho|ilustracao|ilustração|arte|logo|sprite|icone|ícone)\b/i.test(value);
-  if (!hasImageSubject) return false;
-
   const hasCreateIntent = /\b(crie|cria|criar|gere|gera|gerar|faca|faça|fazer|desenhe|desenhar|produza|produzir|quero|preciso|monte|renderize)\b/i.test(value);
-  const hasImplicitPrompt = /^\s*(uma?\s+)?(imagem|foto|desenho|logo|sprite|icone|ícone)\s+(de|do|da|com)\b/i.test(value);
+  const hasImageSubject = /\b(imagem|foto|desenho|ilustracao|ilustração|arte|logo|sprite|icone|ícone|avatar|personagem|anime|manga|mangá|mascote|poster|banner|wallpaper|retrato)\b/i.test(value);
+  const hasVisualStyle = /\b(estilo anime|anime|manga|mangá|cartoon|pixel art|realista|fotorealista|cinematic|3d|aquarela|pintura digital)\b/i.test(value);
+  const hasImplicitPrompt = /^\s*(uma?\s+)?(imagem|foto|desenho|logo|sprite|icone|ícone|avatar|personagem|mascote|poster|banner|wallpaper|retrato)\s+(de|do|da|com)\b/i.test(value);
+  if (!hasImageSubject && !hasVisualStyle) return false;
   return hasCreateIntent || hasImplicitPrompt;
 }
 
 function wantsBitmapImage(text) {
   return /\b(jpeg|jpg|png|foto|realista|real|bitmap|alta qualidade|hd|photorealistic|fotorealista)\b/i.test(String(text || ""));
+}
+
+function normalizeImageProviderName(provider) {
+  const value = String(provider || "").trim().toLowerCase();
+  if (!value || value === "auto") return "";
+  if (["svg", "svg-fallback", "fallback", "local", "ollama"].includes(value)) return "svg";
+  if (["comfy", "comfyui", "comfy-ui", "local-png"].includes(value)) return "comfyui";
+  if (["gemini", "gemini-image", "gemini_image", "nano banana", "nanobanana", "nano-banana"].includes(value)) return "gemini-image";
+  return "";
 }
 
 function normalizeComfyBaseUrl() {
@@ -2703,7 +2712,8 @@ function buildSimpleSvgImage(prompt) {
   const text = String(prompt || "Imagem gerada pela Aurora").slice(0, 180);
   const lower = text.toLowerCase();
   const isDog = /\b(cachorro|cao|cão|dog|filhote)\b/.test(lower);
-  const title = escapeHtml(isDog ? "Cachorro gerado pela Aurora" : "Imagem gerada pela Aurora");
+  const isAnimeCharacter = /\b(anime|manga|mangá|personagem|avatar|heroi|herói|heroina|heroína)\b/.test(lower);
+  const title = escapeHtml(isDog ? "Cachorro gerado pela Aurora" : isAnimeCharacter ? "Personagem gerado pela Aurora" : "Imagem gerada pela Aurora");
   const subtitle = escapeHtml(text);
   const subject = isDog
     ? `<ellipse cx="400" cy="330" rx="122" ry="90" fill="#c98b5a"/>
@@ -2718,6 +2728,20 @@ function buildSimpleSvgImage(prompt) {
       <path d="M515 298 Q570 365 542 430" fill="none" stroke="#dfaa78" stroke-width="28" stroke-linecap="round"/>
       <ellipse cx="350" cy="430" rx="34" ry="20" fill="#f1caa0"/>
       <ellipse cx="450" cy="430" rx="34" ry="20" fill="#f1caa0"/>`
+    : isAnimeCharacter
+      ? `<path d="M278 224 Q400 88 522 224 L494 410 Q400 480 306 410 Z" fill="#1f2733"/>
+      <path d="M292 235 Q400 118 508 235 Q492 328 456 392 Q400 438 344 392 Q308 328 292 235 Z" fill="#f0c7a8"/>
+      <path d="M285 245 Q340 138 410 158 Q470 145 516 245 Q460 215 424 235 Q373 208 285 245 Z" fill="#2b3244"/>
+      <ellipse cx="357" cy="292" rx="24" ry="32" fill="#f7fbff"/>
+      <ellipse cx="443" cy="292" rx="24" ry="32" fill="#f7fbff"/>
+      <ellipse cx="361" cy="296" rx="13" ry="19" fill="#4361ee"/>
+      <ellipse cx="439" cy="296" rx="13" ry="19" fill="#4361ee"/>
+      <circle cx="366" cy="286" r="5" fill="#ffffff"/>
+      <circle cx="444" cy="286" r="5" fill="#ffffff"/>
+      <path d="M368 367 Q400 389 432 367" fill="none" stroke="#8b3f4d" stroke-width="7" stroke-linecap="round"/>
+      <path d="M310 416 Q400 516 490 416" fill="#4f46e5"/>
+      <path d="M342 430 L400 492 L458 430" fill="#edf1f5"/>
+      <path d="M242 430 Q320 370 400 414 Q480 370 558 430 L620 520 H180 Z" fill="#141820"/>`
     : `<rect x="255" y="190" width="290" height="220" rx="38" fill="#43c59e"/>
       <circle cx="345" cy="285" r="34" fill="#0f1316"/>
       <circle cx="455" cy="285" r="34" fill="#0f1316"/>
@@ -2757,14 +2781,50 @@ async function createLocalImage({ prompt, fileName = "" }) {
 }
 
 async function createBestImage({ prompt, fileName = "", provider = "" }) {
-  const forcedProvider = normalizeProviderName(provider);
-  if (forcedProvider === "ollama" || provider === "svg") {
+  const forcedProvider = normalizeImageProviderName(provider);
+  if (forcedProvider === "svg") {
     const image = await createLocalImage({ prompt, fileName });
     return {
       image,
       message: `Criei uma imagem SVG local e mostrei aqui no chat.\n\nArquivo: ${image.path}\nPreview: ${image.url}`,
       fallback: ""
     };
+  }
+
+  if (forcedProvider === "gemini-image") {
+    try {
+      const image = await createGeminiImage({ prompt, fileName });
+      return {
+        image,
+        message: `Criei uma imagem com Gemini Image/Nano Banana e mostrei aqui no chat.\n\nArquivo: ${image.path}\nPreview: ${image.url}\nModelo: ${image.model}`,
+        fallback: ""
+      };
+    } catch (error) {
+      const image = await createLocalImage({ prompt, fileName });
+      return {
+        image,
+        message: `Nao consegui usar o Gemini Image agora: ${compactImageError(error)}\n\nMostrei um fallback SVG simples por enquanto.\n\nArquivo: ${image.path}\nPreview: ${image.url}`,
+        fallback: error.message
+      };
+    }
+  }
+
+  if (forcedProvider === "comfyui") {
+    try {
+      const image = await createComfyImage({ prompt });
+      return {
+        image,
+        message: `Criei uma imagem real com ComfyUI e mostrei aqui no chat.\n\nArquivo: ${image.path}\nPreview: ${image.url}\nModelo: ${image.checkpoint}`,
+        fallback: ""
+      };
+    } catch (error) {
+      const image = await createLocalImage({ prompt, fileName });
+      return {
+        image,
+        message: `Nao consegui usar o ComfyUI agora: ${compactImageError(error)}\n\nMostrei um fallback SVG simples por enquanto.\n\nArquivo: ${image.path}\nPreview: ${image.url}`,
+        fallback: error.message
+      };
+    }
   }
 
   const preferBitmap = wantsBitmapImage(prompt) || Boolean(geminiApiKey);

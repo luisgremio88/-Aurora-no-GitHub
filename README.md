@@ -24,6 +24,7 @@ Mais do que um chat, a Aurora e um laboratorio de produto, automacao e engenhari
 
 - **IA local primeiro**: funciona com Ollama e pode continuar operando sem enviar dados para provedores externos.
 - **Roteamento hibrido**: pode usar Gemini ou OpenRouter quando configurado, escolhendo modelo por tipo de tarefa.
+- **Ferramentas de imagem**: pedidos como desenho, avatar, logo, personagem ou anime sao roteados para ComfyUI local, Gemini Image/Nano Banana quando configurado, ou SVG local como fallback.
 - **Modo Codex/Executor**: prepara contexto, cria fila de execucao, roda checks seguros e registra evidencias.
 - **Backup de inteligencia de sites**: cadastra pastas de sites baixados, extrai paginas, stack, padroes de layout, tokens visuais e licoes de arquitetura para futuras criacoes.
 - **Biblioteca pesquisavel**: busca referencias por stack, layout, componentes, rotas, cores e licoes aprendidas.

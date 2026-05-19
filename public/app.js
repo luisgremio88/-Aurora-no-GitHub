@@ -2123,6 +2123,7 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify({
         model: modelEl.value,
         mode: modeEl.value,
+        imageProvider: "auto",
         fileContext: selectedFiles,
         messages: history.filter((message) => message.content !== "Pensando...")
       })
