@@ -1125,11 +1125,35 @@ function packageSource(packageName, manifest = readPackageManifest(), externalMa
   return "";
 }
 
+function resolveSystemCommand(command) {
+  if (process.platform !== "win32") return { command, argsPrefix: [] };
+  if (command === "npm") return { command: "cmd.exe", argsPrefix: ["/c", "npm"] };
+  if (command === "git") {
+    const candidates = [
+      "C:\\Program Files\\Git\\cmd\\git.exe",
+      "C:\\Program Files\\Git\\bin\\git.exe",
+      "C:\\Program Files (x86)\\Git\\cmd\\git.exe"
+    ];
+    const installed = candidates.find((candidate) => existsSync(candidate));
+    if (installed) return { command: installed, argsPrefix: [] };
+  }
+  return { command, argsPrefix: [] };
+}
+
+function systemCommandSpec(command, args = [], cwd = __dirname, timeout = 10_000) {
+  const resolved = resolveSystemCommand(command);
+  return {
+    command: resolved.command,
+    args: [...resolved.argsPrefix, ...args],
+    cwd,
+    timeout
+  };
+}
+
 async function checkSystemTool(command, args = ["--version"], install = "") {
-  const executable = process.platform === "win32" && command === "npm" ? "cmd.exe" : command;
-  const finalArgs = process.platform === "win32" && command === "npm" ? ["/c", "npm", ...args] : args;
+  const spec = systemCommandSpec(command, args);
   try {
-    const result = await execFileAsync(executable, finalArgs, { cwd: __dirname, timeout: 10_000, windowsHide: true });
+    const result = await execFileAsync(spec.command, spec.args, { cwd: spec.cwd, timeout: spec.timeout, windowsHide: true });
     return {
       command,
       available: true,
@@ -1412,8 +1436,9 @@ async function buildAuroraPlugins() {
 }
 
 async function runOptionalCommand(command, args = [], cwd = __dirname, timeout = 10_000) {
+  const spec = systemCommandSpec(command, args, cwd, timeout);
   try {
-    const result = await execFileAsync(command, args, { cwd, timeout, windowsHide: true });
+    const result = await execFileAsync(spec.command, spec.args, { cwd: spec.cwd, timeout: spec.timeout, windowsHide: true });
     return {
       ok: true,
       stdout: String(result.stdout || "").trim(),
@@ -7649,9 +7674,7 @@ async function handleModelRoutes(req, res) {
 }
 
 function npmCommandSpec(args, timeout = 20_000) {
-  return process.platform === "win32"
-    ? { command: "cmd.exe", args: ["/c", "npm", ...args], cwd: __dirname, timeout }
-    : { command: "npm", args, cwd: __dirname, timeout };
+  return systemCommandSpec("npm", args, __dirname, timeout);
 }
 
 const allowedCommands = new Map([
@@ -7659,8 +7682,8 @@ const allowedCommands = new Map([
   ["node-check-app", { command: "node", args: ["--check", "public/app.js"], cwd: __dirname }],
   ["npm-run-check", npmCommandSpec(["run", "check"], 60_000)],
   ["npm-test", npmCommandSpec(["test"], 120_000)],
-  ["git-status", { command: "git", args: ["status", "--short"], cwd: __dirname, timeout: 20_000 }],
-  ["git-diff", { command: "git", args: ["diff", "--", "."], cwd: __dirname, timeout: 20_000 }],
+  ["git-status", systemCommandSpec("git", ["status", "--short"], __dirname, 20_000)],
+  ["git-diff", systemCommandSpec("git", ["diff", "--", "."], __dirname, 20_000)],
   ["ollama-list", { command: "ollama", args: ["list"], cwd: __dirname }],
   ["npm-start-info", npmCommandSpec(["--version"])]
 ]);
