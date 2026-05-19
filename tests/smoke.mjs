@@ -142,6 +142,8 @@ const scannedResource = await request("/api/resource-library", {
 });
 assert(scannedResource.resources.some((item) => item.title === "Aurora App"), "resource library should save scanned folder");
 assert(scannedResource.resources[0].stats?.totalFiles > 0, "scanned resource should include file stats");
+assert(scannedResource.resources[0].siteIntelligence?.isWebsite, "scanned resource should detect website intelligence");
+assert(Array.isArray(scannedResource.resources[0].siteIntelligence?.architectureLessons), "website intelligence should include reusable lessons");
 
 const behaviorSettings = await request("/api/behavior-settings");
 assert(typeof behaviorSettings.settings?.freeBuilder !== "undefined", "behavior settings should include freeBuilder");

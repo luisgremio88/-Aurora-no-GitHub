@@ -485,10 +485,21 @@ function formatResourceLibraryForPrompt(library) {
     .map((resource) => {
       const modules = (resource.modules || []).slice(0, 8).join("; ");
       const requirements = (resource.requirements || []).slice(0, 8).join(", ");
+      const site = resource.siteIntelligence || {};
+      const siteLines = site.isWebsite
+        ? `
+  Inteligencia web:
+  - Stack/frameworks: ${(site.frameworks || []).slice(0, 8).join(", ") || "nao detectado"}
+  - Paginas/rotas: ${(site.routingHints || site.pages || []).slice(0, 8).map((item) => item.path || item).join("; ") || "nao mapeadas"}
+  - Padroes de layout: ${(site.layoutPatterns || []).slice(0, 8).join("; ") || "nao mapeados"}
+  - Componentes/pistas: ${(site.componentHints || []).slice(0, 10).join(", ") || "nao mapeados"}
+  - Licoes reutilizaveis: ${(site.architectureLessons || []).slice(0, 6).join(" ")}
+  - Cuidado: usar como referencia de arquitetura, nao copiar marca, textos, imagens ou codigo proprietario.`
+        : "";
       return `- ${resource.title}: ${resource.summary}
   Caminho: ${resource.path}
   Modulos: ${modules || "nao mapeados"}
-  Requisitos: ${requirements || "nao mapeados"}`;
+  Requisitos: ${requirements || "nao mapeados"}${siteLines}`;
     })
     .join("\n");
 }
@@ -3411,6 +3422,195 @@ function extractMarkdownHeadings(text, limit = 16) {
     .slice(0, limit);
 }
 
+async function collectWebsiteFiles(dir, rootDir, files = [], depth = 0) {
+  if (depth > 7 || files.length >= 180) return files;
+
+  let entries = [];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return files;
+  }
+
+  for (const entry of entries) {
+    if (files.length >= 180) break;
+    if (entry.name.startsWith(".") || ignoredDirs.has(entry.name)) continue;
+
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectWebsiteFiles(fullPath, rootDir, files, depth + 1);
+      continue;
+    }
+
+    const name = entry.name.toLowerCase();
+    const ext = path.extname(name).toLowerCase();
+    const isWebFile = [".html", ".css", ".js", ".mjs", ".jsx", ".ts", ".tsx", ".json"].includes(ext)
+      || ["package.json", "vite.config.js", "next.config.js", "tailwind.config.js", "astro.config.mjs"].includes(name);
+    if (!isWebFile) continue;
+
+    const info = await stat(fullPath);
+    if (info.size > searchMaxFileSize) continue;
+    files.push({
+      path: path.relative(rootDir, fullPath).replaceAll(path.sep, "/"),
+      fullPath,
+      name,
+      ext: ext || "(sem extensao)",
+      size: info.size
+    });
+  }
+
+  return files;
+}
+
+function uniqueLimited(values, limit = 12) {
+  return [...new Set(values.filter(Boolean))].slice(0, limit);
+}
+
+function detectWebsiteFrameworks(files, packageJson, contentBundle) {
+  const deps = {
+    ...packageJson?.dependencies,
+    ...packageJson?.devDependencies
+  };
+  const names = Object.keys(deps || {});
+  const lower = contentBundle.toLowerCase();
+  const frameworks = [];
+
+  for (const [name, tests] of [
+    ["React", ["react", "react-dom", "jsx"]],
+    ["Next.js", ["next", "next.config"]],
+    ["Vue", ["vue", "createapp("]],
+    ["Nuxt", ["nuxt", "nuxt.config"]],
+    ["Svelte", ["svelte", "sveltekit"]],
+    ["Astro", ["astro", "astro.config"]],
+    ["Vite", ["vite", "vite.config"]],
+    ["Tailwind CSS", ["tailwindcss", "tailwind.config", "@tailwind"]],
+    ["Bootstrap", ["bootstrap", "btn btn-", "container-fluid"]],
+    ["Three.js", ["three", "three.js"]]
+  ]) {
+    if (tests.some((test) => names.includes(test) || lower.includes(test))) frameworks.push(name);
+  }
+
+  if (files.some((file) => file.name === "package.json")) frameworks.push("Node/npm");
+  if (files.some((file) => file.ext === ".html") && !frameworks.length) frameworks.push("HTML/CSS/JS estatico");
+  return uniqueLimited(frameworks, 10);
+}
+
+function inferLayoutPatterns(contentBundle) {
+  const lower = contentBundle.toLowerCase();
+  const patterns = [];
+  if (lower.includes("display: grid") || lower.includes("grid-template")) patterns.push("layouts em CSS Grid");
+  if (lower.includes("display: flex") || lower.includes("flex-direction")) patterns.push("alinhamento com Flexbox");
+  if (lower.includes("@media")) patterns.push("responsividade com media queries");
+  if (lower.includes("position: sticky") || lower.includes("position: fixed")) patterns.push("navegacao fixa/sticky");
+  if (/<(header|main|section|article|footer|nav)\b/i.test(contentBundle)) patterns.push("HTML semantico por secoes");
+  if (/class=["'][^"']*(card|panel|tile|item)/i.test(contentBundle)) patterns.push("componentes visuais reutilizaveis");
+  if (/aria-[a-z]+|role=["']/i.test(contentBundle)) patterns.push("sinais de acessibilidade");
+  return uniqueLimited(patterns, 12);
+}
+
+function inferComponentHints(contentBundle) {
+  const classes = [];
+  for (const match of contentBundle.matchAll(/class(?:Name)?=["']([^"']+)["']/g)) {
+    classes.push(...match[1].split(/\s+/).filter((name) => /^(app|nav|hero|card|panel|modal|toast|form|input|btn|button|toolbar|sidebar|grid|list|item|footer|header|section)/i.test(name)));
+  }
+  return uniqueLimited(classes.map((item) => item.replace(/[{}]/g, "")), 16);
+}
+
+function extractDesignTokens(contentBundle) {
+  const colors = uniqueLimited(contentBundle.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]+\)|hsla?\([^)]+\)/gi) || [], 18);
+  const fonts = [];
+  for (const match of contentBundle.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) {
+    fonts.push(match[1].replace(/["']/g, "").trim());
+  }
+  return { colors, fonts: uniqueLimited(fonts, 8) };
+}
+
+function inferArchitectureLessons({ frameworks, layoutPatterns, pages, cssFiles, jsFiles, designTokens }) {
+  const lessons = [];
+  if (frameworks.length) lessons.push(`Comecar projetos parecidos definindo stack: ${frameworks.slice(0, 4).join(", ")}.`);
+  if (pages.length > 1) lessons.push("Mapear paginas primeiro e criar navegacao antes de detalhar componentes.");
+  if (cssFiles.length) lessons.push("Separar tokens visuais, layout responsivo e estados de componente em CSS organizado.");
+  if (jsFiles.length) lessons.push("Isolar comportamento interativo em modulos pequenos ligados aos elementos da interface.");
+  if (layoutPatterns.length) lessons.push(`Reutilizar padroes detectados: ${layoutPatterns.slice(0, 4).join(", ")}.`);
+  if (designTokens.colors.length || designTokens.fonts.length) lessons.push("Extrair paleta e tipografia como referencia, sem copiar marca, textos ou assets.");
+  return uniqueLimited(lessons, 8);
+}
+
+async function analyzeWebsiteArchitecture(rootPath, statsData) {
+  const files = await collectWebsiteFiles(rootPath, rootPath);
+  const htmlFiles = files.filter((file) => file.ext === ".html");
+  const cssFiles = files.filter((file) => file.ext === ".css").map((file) => file.path).slice(0, 20);
+  const jsFiles = files.filter((file) => [".js", ".mjs", ".jsx", ".ts", ".tsx"].includes(file.ext)).map((file) => file.path).slice(0, 20);
+  const packagePath = files.find((file) => file.name === "package.json")?.fullPath;
+  let packageJson = {};
+  if (packagePath) {
+    try {
+      packageJson = JSON.parse(await readFile(packagePath, "utf8"));
+    } catch {
+      packageJson = {};
+    }
+  }
+
+  const sampled = [];
+  for (const file of files.filter((item) => item.ext !== ".json").slice(0, 60)) {
+    try {
+      sampled.push(await readFile(file.fullPath, "utf8"));
+    } catch {
+      // Ignore unreadable reference files.
+    }
+  }
+  const contentBundle = sampled.join("\n").slice(0, 500_000);
+  const pages = [];
+  for (const file of htmlFiles.slice(0, 30)) {
+    let title = "";
+    try {
+      const html = await readFile(file.fullPath, "utf8");
+      title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || "";
+    } catch {
+      title = "";
+    }
+    pages.push({ path: file.path, title });
+  }
+
+  const frameworks = detectWebsiteFrameworks(files, packageJson, contentBundle);
+  const layoutPatterns = inferLayoutPatterns(contentBundle);
+  const componentHints = inferComponentHints(contentBundle);
+  const designTokens = extractDesignTokens(contentBundle);
+  const assetHints = Object.entries(statsData.byExtension || {})
+    .filter(([ext]) => [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".mp4", ".webm"].includes(ext))
+    .sort((a, b) => b[1] - a[1])
+    .map(([ext, count]) => `${ext}: ${count}`)
+    .slice(0, 8);
+  const routingHints = uniqueLimited([
+    ...pages.map((page) => page.path),
+    ...files.filter((file) => /routes?|pages?|app\//i.test(file.path)).map((file) => file.path)
+  ], 20);
+  const isWebsite = Boolean(htmlFiles.length || cssFiles.length || jsFiles.length || frameworks.length);
+  const architectureLessons = inferArchitectureLessons({
+    frameworks,
+    layoutPatterns,
+    pages,
+    cssFiles,
+    jsFiles,
+    designTokens
+  });
+
+  return {
+    isWebsite,
+    pages,
+    cssFiles,
+    jsFiles,
+    frameworks,
+    layoutPatterns,
+    componentHints,
+    assetHints,
+    routingHints,
+    designTokens,
+    architectureLessons,
+    note: "Use como referencia de arquitetura e padroes. Nao copie textos, marcas, imagens ou codigo proprietario sem permissao."
+  };
+}
+
 async function scanResourceFolder(rawPath, title = "") {
   const rootPath = path.resolve(String(rawPath || "").trim());
   if (!rootPath || !existsSync(rootPath)) {
@@ -3436,6 +3636,7 @@ async function scanResourceFolder(rawPath, title = "") {
     : topFolders;
   const statsData = { totalFiles: 0, byExtension: {}, notebooks: [], markdowns: [], dataFiles: [] };
   await collectResourceFiles(rootPath, rootPath, statsData);
+  const siteIntelligence = await analyzeWebsiteArchitecture(rootPath, statsData);
   const headings = extractMarkdownHeadings(readme);
   const finalTitle = String(title || headings[0] || path.basename(rootPath)).trim().slice(0, 120);
   const summaryParts = [
@@ -3455,6 +3656,7 @@ async function scanResourceFolder(rawPath, title = "") {
     headings,
     requirements,
     stats: statsData,
+    siteIntelligence,
     updatedAt: new Date().toISOString()
   };
 }

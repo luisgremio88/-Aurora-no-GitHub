@@ -1835,6 +1835,13 @@ function renderResourceLibrary(resources) {
       .join(" | ");
     const modules = (resource.modules || []).slice(0, 8).join(" | ");
     const requirements = (resource.requirements || []).slice(0, 8).join(", ");
+    const site = resource.siteIntelligence || {};
+    const webIntelligence = site.isWebsite ? `
+        <p>Inteligencia web: ${escapeHtml((site.frameworks || []).slice(0, 6).join(", ") || "site estatico")}</p>
+        <p>Paginas/rotas: ${escapeHtml((site.routingHints || site.pages || []).slice(0, 6).map((item) => item.path || item).join(" | ") || "nao mapeadas")}</p>
+        <p>Padroes: ${escapeHtml((site.layoutPatterns || []).slice(0, 6).join(" | ") || "nao mapeados")}</p>
+        <p>Licoes: ${escapeHtml((site.architectureLessons || []).slice(0, 4).join(" "))}</p>
+      ` : "";
     return `
       <article class="knowledge-item">
         <strong>${escapeHtml(resource.title)}</strong>
@@ -1843,6 +1850,7 @@ function renderResourceLibrary(resources) {
         <p>Modulos: ${escapeHtml(modules || "nao mapeados")}</p>
         <p>Extensoes: ${escapeHtml(extensions || "nao mapeadas")}</p>
         <p>Requisitos: ${escapeHtml(requirements || "nenhum")}</p>
+        ${webIntelligence}
         <button class="ghost-button" type="button" data-resource-id="${escapeHtml(resource.id)}">Remover</button>
       </article>
     `;

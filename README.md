@@ -25,6 +25,7 @@ Mais do que um chat, a Aurora e um laboratorio de produto, automacao e engenhari
 - **IA local primeiro**: funciona com Ollama e pode continuar operando sem enviar dados para provedores externos.
 - **Roteamento hibrido**: pode usar Gemini ou OpenRouter quando configurado, escolhendo modelo por tipo de tarefa.
 - **Modo Codex/Executor**: prepara contexto, cria fila de execucao, roda checks seguros e registra evidencias.
+- **Backup de inteligencia de sites**: cadastra pastas de sites baixados, extrai paginas, stack, padroes de layout, tokens visuais e licoes de arquitetura para futuras criacoes.
 - **Seguranca por construcao**: bloqueia segredos versionados, ignora bancos locais, protege chaves com DPAPI no Windows e limita operacoes sensiveis por permissao.
 - **Edicao assistida**: gera proposta, mostra diff, aplica com backup e registra historico.
 - **Git/GitHub integrado**: detecta branch, remote, status e diffs mesmo no Windows quando o PATH ainda nao foi atualizado.
