@@ -590,6 +590,16 @@ function renderPortableCheck(data) {
   const checklist = (data.checklist || [])
     .map((item) => `${item.ok ? "OK" : "PENDENTE"} - ${item.item}`)
     .join("\n");
+  const offline = data.offlineReadiness || {};
+  const offlineWorks = (offline.worksOffline || [])
+    .map((item) => `${item.ok ? "OK" : "PENDENTE"} - ${item.feature}: ${item.detail || ""}`)
+    .join("\n");
+  const internetNeeds = (offline.needsInternet || [])
+    .map((item) => `- ${item.feature}: ${item.detail || ""}`)
+    .join("\n");
+  const offlineRecommendations = (offline.recommendations || [])
+    .map((item) => `- ${item}`)
+    .join("\n");
   const stats = Object.entries(data.stats || {})
     .map(([name, value]) => `${name}: ${value.files || 0} arquivos, ${value.folders || 0} pastas, ${formatBytes(value.bytes)}`)
     .join("\n");
@@ -604,6 +614,18 @@ Ollama
 ${data.ollama?.online ? "online" : `offline: ${data.ollama?.error || "sem resposta"}`}
 Modelos: ${(data.ollama?.models || []).join(", ") || "nenhum"}
 Modelo padrao: ${data.defaultModel}
+
+Prontidao offline
+${offline.ready ? "OK" : "PARCIAL"} - ${offline.summary || "Sem avaliacao offline."}
+
+Funciona sem internet
+${offlineWorks || "- Sem dados."}
+
+Depende de internet
+${internetNeeds || "- Nada listado."}
+
+Antes de ficar sem rede
+${offlineRecommendations || "- Sem recomendacoes."}
 
 Checklist
 ${checklist}

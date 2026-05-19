@@ -7154,6 +7154,8 @@ async function handlePortableCheck(req, res) {
   }
 
   const routes = await readModelRoutes();
+  const capabilities = await buildCapabilityStatus();
+  const gitTool = capabilities.tools.find((tool) => tool.command === "git");
   const recommendedCopy = [
     "server.js",
     "package.json",
@@ -7171,6 +7173,35 @@ async function handlePortableCheck(req, res) {
     { ok: ollama.online, item: "Ollama respondendo neste PC" },
     { ok: ollama.models.includes(defaultModel), item: `modelo padrao instalado: ${defaultModel}` }
   ];
+  const offlineReadiness = {
+    ready: Boolean(ollama.online && ollama.models.includes(defaultModel) && existsSync(appDbFile)),
+    summary: ollama.online && ollama.models.includes(defaultModel)
+      ? "A Aurora continua operando sem internet para chat local, memoria, arquivos, SQL, Git local, executor e checks."
+      : "A interface local continua abrindo, mas o chat offline depende do Ollama ligado e do modelo padrao instalado.",
+    worksOffline: [
+      { feature: "Interface local", ok: true, detail: `http://localhost:${port}` },
+      { feature: "Memoria, sessoes e conhecimentos", ok: existsSync(appDbFile), detail: "SQLite local em data/aurora.sqlite" },
+      { feature: "Chat com modelo local", ok: ollama.online && ollama.models.includes(defaultModel), detail: `${defaultModel} via Ollama` },
+      { feature: "Leitura, busca e mapa de codigo", ok: true, detail: "Usa arquivos locais do workspace" },
+      { feature: "Edicao assistida com backup", ok: true, detail: "Nao depende de rede para aplicar propostas locais" },
+      { feature: "SQL local", ok: existsSync(appDbFile), detail: "Consultas no SQLite interno" },
+      { feature: "Git status/diff/commits locais", ok: Boolean(gitTool?.available), detail: gitTool?.version || "Git nao detectado" },
+      { feature: "Checks npm locais", ok: true, detail: "npm run check, npm test e npm run security" }
+    ],
+    needsInternet: [
+      { feature: "GitHub push/pull/Actions", detail: "Sincronizacao online e validacoes no GitHub" },
+      { feature: "Gemini/OpenRouter", detail: "Modelos externos dependem de internet e chave configurada" },
+      { feature: "Downloads e instalacoes", detail: "winget, npm install, ollama pull e downloads de modelos" },
+      { feature: "Busca web e APIs externas", detail: "Qualquer consulta fora da maquina local" }
+    ],
+    recommendations: [
+      "Manter Ollama instalado e iniciar com ollama serve antes de usar chat offline.",
+      `Baixar e testar o modelo ${defaultModel} enquanto houver internet.`,
+      "Rodar npm run check, npm run security e npm test antes de ficar sem rede.",
+      "Fazer commit local mesmo offline; quando a internet voltar, rodar git push.",
+      "Nao depender de Gemini/OpenRouter para tarefas que precisam funcionar sem internet."
+    ]
+  };
 
   sendJson(res, 200, {
     appPath: __dirname,
@@ -7179,6 +7210,7 @@ async function handlePortableCheck(req, res) {
     defaultModel,
     routes,
     ollama,
+    offlineReadiness,
     stats: {
       app: appStats,
       data: dataStats,

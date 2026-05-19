@@ -44,6 +44,8 @@ assert(!JSON.stringify(aiProviders).includes(process.env.GEMINI_API_KEY || "__mi
 const portable = await request("/api/portable-check");
 assert(portable.appPath && Array.isArray(portable.checklist), "portable check should include appPath and checklist");
 assert(portable.stats?.data?.exists, "portable check should include data folder stats");
+assert(portable.offlineReadiness?.worksOffline?.some((item) => item.feature.includes("Interface local")), "portable check should include offline readiness");
+assert(portable.offlineReadiness?.needsInternet?.some((item) => item.feature.includes("GitHub")), "offline readiness should list internet-dependent features");
 
 const maintenance = await request("/api/maintenance?session=default");
 assert(typeof maintenance.messageCount === "number", "maintenance should include messageCount");
