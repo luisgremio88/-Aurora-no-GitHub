@@ -1,5 +1,8 @@
 node_modules/
 node_modules.partial-*/
+.env
+.env.*
+!.env.example
 data/secrets/
 data/
 data/*.sqlite
@@ -14,3 +17,12 @@ generated/
 tools/ComfyUI/
 tools/ComfyUI-master.zip
 *.log
+*.bak
+*.pem
+*.key
+*.pfx
+*.crt
+*.sqlite
+*.db
+*.7z
+*.zip

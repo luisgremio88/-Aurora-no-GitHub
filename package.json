@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "check": "node --check server.js && node --check public/app.js",
+    "security": "node scripts/security-scan.mjs",
     "test": "node tests/smoke.mjs"
   }
 }
