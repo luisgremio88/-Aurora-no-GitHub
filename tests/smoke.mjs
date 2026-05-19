@@ -218,6 +218,32 @@ const animeImageChat = await request("/api/chat", {
 assert(animeImageChat.message?.includes("/generated/images/"), "anime character prompt should route to image creation");
 assert(animeImageChat.image?.url?.includes("/generated/images/"), "anime character prompt should return image metadata");
 
+const casualAnimeImageChat = await request("/api/chat", {
+  method: "POST",
+  body: JSON.stringify({
+    mode: "general",
+    imageProvider: "svg",
+    messages: [{ role: "user", content: "faz um desenho de qualquer anime" }]
+  })
+});
+assert(casualAnimeImageChat.message?.includes("/generated/images/"), "casual anime drawing prompt should route to image creation");
+assert(casualAnimeImageChat.image?.url?.includes("/generated/images/"), "casual anime drawing prompt should return image metadata");
+
+const retryAnimeImageChat = await request("/api/chat", {
+  method: "POST",
+  body: JSON.stringify({
+    mode: "general",
+    imageProvider: "svg",
+    messages: [
+      { role: "user", content: "faz um desenho de qualquer anime" },
+      { role: "assistant", content: "Nao posso criar imagens diretamente." },
+      { role: "user", content: "tenta novamente" }
+    ]
+  })
+});
+assert(retryAnimeImageChat.message?.includes("/generated/images/"), "image retry prompt should reuse previous visual request");
+assert(retryAnimeImageChat.image?.url?.includes("/generated/images/"), "image retry prompt should return image metadata");
+
 const sessions = await request("/api/sessions");
 assert(Array.isArray(sessions.sessions), "sessions response should include sessions array");
 

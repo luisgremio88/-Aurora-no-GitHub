@@ -2479,12 +2479,30 @@ function isImageRequest(text) {
     && /\b(motores? de imagem|provedores? de imagem|ferramentas? de imagem|apis?|chaves?|gemini|openrouter|comfyui|nano banana)\b/i.test(value);
   if (asksAboutImageTools) return false;
 
-  const hasCreateIntent = /\b(crie|cria|criar|gere|gera|gerar|faca|faça|fazer|desenhe|desenhar|produza|produzir|quero|preciso|monte|renderize)\b/i.test(value);
+  const hasCreateIntent = /\b(crie|cria|criar|gere|gera|gerar|faz|faca|faça|fazer|desenha|desenhe|desenhar|produza|produzir|quero|preciso|monte|renderize)\b/i.test(value);
   const hasImageSubject = /\b(imagem|foto|desenho|ilustracao|ilustração|arte|logo|sprite|icone|ícone|avatar|personagem|anime|manga|mangá|mascote|poster|banner|wallpaper|retrato)\b/i.test(value);
   const hasVisualStyle = /\b(estilo anime|anime|manga|mangá|cartoon|pixel art|realista|fotorealista|cinematic|3d|aquarela|pintura digital)\b/i.test(value);
   const hasImplicitPrompt = /^\s*(uma?\s+)?(imagem|foto|desenho|logo|sprite|icone|ícone|avatar|personagem|mascote|poster|banner|wallpaper|retrato)\s+(de|do|da|com)\b/i.test(value);
   if (!hasImageSubject && !hasVisualStyle) return false;
   return hasCreateIntent || hasImplicitPrompt;
+}
+
+function isImageRetryRequest(text) {
+  return /\b(tenta|tente|refaz|refaca|refaça|novamente|de novo|agora sim|faz de novo|faca de novo|faça de novo)\b/i.test(String(text || ""));
+}
+
+function findImagePromptFromMessages(messages = []) {
+  const userMessages = (Array.isArray(messages) ? messages : []).filter((message) => message.role === "user");
+  const latest = userMessages.at(-1)?.content || "";
+  if (isImageRequest(latest)) return latest;
+  if (!isImageRetryRequest(latest)) return "";
+
+  const previousImagePrompt = [...userMessages]
+    .slice(0, -1)
+    .reverse()
+    .find((message) => isImageRequest(message.content))?.content || "";
+  if (!previousImagePrompt) return "";
+  return `${previousImagePrompt}\nPedido de ajuste: ${latest}`;
 }
 
 function wantsBitmapImage(text) {
@@ -2885,7 +2903,10 @@ async function serveStatic(req, res) {
       ".css": "text/css; charset=utf-8",
       ".js": "text/javascript; charset=utf-8"
     }[ext] || "application/octet-stream";
-    res.writeHead(200, { "content-type": contentType });
+    const cacheControl = [".html", ".css", ".js"].includes(ext)
+      ? "no-cache, must-revalidate"
+      : "public, max-age=3600";
+    res.writeHead(200, { "content-type": contentType, "cache-control": cacheControl });
     res.end(file);
   } catch {
     res.writeHead(404);
@@ -3055,8 +3076,9 @@ async function handleModelAdvisor(req, res) {
 async function handleChat(req, res) {
   const body = await readJsonBody(req);
   const latestUserMessage = [...(body.messages || [])].reverse().find((message) => message.role === "user")?.content || "";
-  if (isImageRequest(latestUserMessage)) {
-    const result = await createBestImage({ prompt: latestUserMessage, provider: body.imageProvider });
+  const imagePrompt = findImagePromptFromMessages(body.messages || []);
+  if (imagePrompt) {
+    const result = await createBestImage({ prompt: imagePrompt, provider: body.imageProvider });
     sendJson(res, 200, {
       message: result.message,
       image: result.image,

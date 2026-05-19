@@ -2075,6 +2075,37 @@ function renderSearchResults(results) {
   `).join("");
 }
 
+function looksLikeImageGenerationRequest(text) {
+  const value = String(text || "").toLowerCase();
+  const asksAboutImageTools =
+    /\b(quais|qual|como|configurad[ao]s?|consegue usar|voce usa|você usa|pode usar|tem acesso)\b/i.test(value)
+    && /\b(motores? de imagem|provedores? de imagem|ferramentas? de imagem|apis?|chaves?|gemini|openrouter|comfyui|nano banana)\b/i.test(value);
+  if (asksAboutImageTools) return false;
+
+  const hasCreateIntent = /\b(crie|cria|criar|gere|gera|gerar|faz|faca|faça|fazer|desenha|desenhe|desenhar|produza|produzir|quero|preciso|monte|renderize)\b/i.test(value);
+  const hasImageSubject = /\b(imagem|foto|desenho|ilustracao|ilustração|arte|logo|sprite|icone|ícone|avatar|personagem|anime|manga|mangá|mascote|poster|banner|wallpaper|retrato)\b/i.test(value);
+  const hasVisualStyle = /\b(estilo anime|anime|manga|mangá|cartoon|pixel art|realista|fotorealista|cinematic|3d|aquarela|pintura digital)\b/i.test(value);
+  const hasImplicitPrompt = /^\s*(uma?\s+)?(imagem|foto|desenho|logo|sprite|icone|ícone|avatar|personagem|mascote|poster|banner|wallpaper|retrato)\s+(de|do|da|com)\b/i.test(value);
+  if (!hasImageSubject && !hasVisualStyle) return false;
+  return hasCreateIntent || hasImplicitPrompt;
+}
+
+function looksLikeImageRetryRequest(text) {
+  return /\b(tenta|tente|refaz|refaca|refaça|novamente|de novo|agora sim|faz de novo|faca de novo|faça de novo)\b/i.test(String(text || ""));
+}
+
+function findImagePromptFromHistory(currentContent) {
+  if (looksLikeImageGenerationRequest(currentContent)) return currentContent;
+  if (!looksLikeImageRetryRequest(currentContent)) return "";
+
+  const previousImageMessage = [...history]
+    .slice(0, -1)
+    .reverse()
+    .find((message) => message.role === "user" && looksLikeImageGenerationRequest(message.content));
+  if (!previousImageMessage) return "";
+  return `${previousImageMessage.content}\nPedido de ajuste: ${currentContent}`;
+}
+
 promptEl.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -2117,6 +2148,28 @@ form.addEventListener("submit", async (event) => {
   renderMessages();
 
   try {
+    const imagePrompt = findImagePromptFromHistory(content);
+    if (imagePrompt) {
+      const response = await fetch("/api/create-image", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          prompt: imagePrompt,
+          imageProvider: "auto"
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        pending.content = data.message;
+        pending.image = data.image || null;
+      } else {
+        pending.content = `${data.error}\n${data.detail || ""}`;
+      }
+      renderMessages();
+      await saveChatHistory();
+      return;
+    }
+
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
